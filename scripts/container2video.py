@@ -7,6 +7,7 @@ from tqdm import tqdm
 from collections import defaultdict
 import numpy as np
 
+ALIAS_NAME = 'cont2video'
 
 def get_args():
     parser = argparse.ArgumentParser(description='Create a video of all frames in container with their detections')

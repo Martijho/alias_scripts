@@ -3,6 +3,9 @@ import json
 import argparse
 
 
+ALIAS_NAME = 'json2cont'
+
+
 def build_entry(e, dataset_name=None, dataset_subset=None):
     entry = AnnotationEntry(
         e['image_path'],

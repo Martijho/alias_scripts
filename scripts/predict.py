@@ -8,6 +8,9 @@ import numpy as np
 from tqdm import tqdm
 
 
+ALIAS_NAME = 'predict'
+
+
 def _get_detector_func(model_root):
     files = list(Path(model_root).glob('*'))
     suffix = [f.suffix for f in files]
