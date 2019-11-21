@@ -1,6 +1,7 @@
-from bbox import AnnotationContainer, AnnotationInstance, AnnotationEntry, BBox
+from bbox import AnnotationContainer, AnnotationInstance, AnnotationEntry, BBox, DatasetSourceProvider, ImageSize
 from bbox.contrib.detection.darknet import DarknetObjectDetector
 from bbox.contrib.detection.tensorflow import TensorflowObjectDetector
+from bbox.contrib.detection.caffe import CaffeYoloObjectDetector
 
 from pathlib import Path
 import argparse
@@ -20,8 +21,34 @@ def _get_detector_func(model_root):
         return dn_detector
     if '.pbtxt' in suffix and '.pb' in suffix:
         return tf_detector
+    if '.prototxt' in suffix and '.caffemodel' in suffix:
+        return caffe_detector
 
     raise ValueError('No model type recognized')
+
+
+def caffe_detector(model_root, threshold=.01, box_blending=False, anchors=None):
+    model_root = Path(model_root)
+    model_name = model_root.name
+    prototxt = model_root / f'{model_name}.prototxt'
+    caffemodel = model_root / f'{model_name}.caffemodel'
+
+    if anchors is None:
+        anchors = np.array([0.72, 1.67, 1.86, 4.27, 2.83, 8.66, 5.53, 10.47, 10.83, 12.45]).reshape((5, 2))
+    if type(anchors) == list:
+        anchors = np.array(anchors).reshape(len(anchors)//2, 2)
+
+    names = [l for l in (model_root / 'names.txt').open('r').read().split('\n') if l != '']
+    cd = CaffeYoloObjectDetector(
+        prototxt,
+        caffemodel,
+        anchors=anchors,
+        labelmap=names,
+        detection_score_threshold=threshold,
+        nms_iou_threshold=.0 if box_blending else 0.45,
+        detector_output_format='relative'
+    )
+    return cd
 
 
 def dn_detector(model_root, threshold=.01, box_blending=False):
@@ -32,9 +59,14 @@ def dn_detector(model_root, threshold=.01, box_blending=False):
     cfg = model_root / f'{model_name}.cfg'
     weights = model_root / f'{model_name}.weights'
 
-    dnd = DarknetObjectDetector(darknet_path, cfg, weights, data,
-                                detection_score_threshold=threshold,
-                                nms_iou_threshold=.0 if box_blending else .45)
+    dnd = DarknetObjectDetector(
+        darknet_path,
+        cfg,
+        weights,
+        data,
+        detection_score_threshold=threshold,
+        nms_iou_threshold=.0 if box_blending else .45
+    )
     return dnd
 
 
@@ -43,8 +75,11 @@ def tf_detector(model_root, threshold=.01, box_blending=False):
     model_root = Path(model_root)
     labelmap = model_root / 'label_map.pbtxt'
     model = model_root / 'frozen_inference_graph.pb'
-    tfd = TensorflowObjectDetector(model, labelmap,
-                                   detection_score_threshold=threshold)
+    tfd = TensorflowObjectDetector(
+        model,
+        labelmap,
+        detection_score_threshold=threshold
+    )
     return tfd
 
 
@@ -95,9 +130,35 @@ def _blend_boxes(pred):
     return pred
 
 
+def load_preview_image(path):
+    buffer = open(path, 'rb').read()
+    img = np.frombuffer(buffer, dtype=np.float16).astype(np.float32)
+    img = img.reshape((3, 480, 640)).transpose((1, 2, 0))
+    return (img*255).astype(np.uint8)
+
+
+def detect_on_preview_dir(preview_data, detector):
+    dsp = DatasetSourceProvider()
+    dsp.add_source(preview_data, 'predicted')
+    container = AnnotationContainer(dataset_source_provider=dsp)
+
+    for image_path in Path(preview_data).glob('preview*'):
+        image = load_preview_image(str(image_path))
+        det = detector.detect_image(image)
+
+        e = AnnotationEntry(image_path.name, ImageSize.from_image(image), 'predicted', instances=det)
+        container.add_entry(e)
+
+    return container
+
+
 def main(args):
     thresh = .01 if args.box_blending else args.threshold
-    detector = _get_detector_func(args.model)(args.model, thresh, box_blending=args.box_blending)
+    get_detector = _get_detector_func(args.model)
+    if get_detector == caffe_detector:
+        detector = get_detector(args.model, thresh, box_blending=args.box_blending, anchors=args.anchors)
+    else:
+        detector = _get_detector_func(args.model)(args.model, thresh, box_blending=args.box_blending)
 
     with detector:
         if args.container:
@@ -109,12 +170,17 @@ def main(args):
                 pred.filter_all_instances_by_threshold(args.threshold, in_place=True)
             pred.as_evaluated_against(gt).summary()
 
-        if args.images:
+        elif args.images:
             pred = detector.detect_on_image_folder(args.images, dataset_name='predicted')
             if args.box_blending and type(detector) == DarknetObjectDetector:
                 pred = _blend_boxes(pred)
                 pred.filter_all_instances_by_threshold(args.threshold, in_place=True)
 
+        elif args.preview:
+            pred = detect_on_preview_dir(args.preview, detector)
+            if args.box_blending and type(detector) == DarknetObjectDetector:
+                pred = _blend_boxes(pred)
+                pred.filter_all_instances_by_threshold(args.threshold, in_place=True)
     if args.output:
         pred.to_file(args.output)
 
@@ -126,13 +192,25 @@ def get_args():
     parser.add_argument('-c', '--container', type=str, help='Predict on AnnotationContainer')
     parser.add_argument('-i', '--images', type=str, help='Predict on images in directory')
     parser.add_argument('-t', '--threshold', default=0.01, type=float, help='Confidence threshold')
-    parser.add_argument('-b', '--box_blending', action='store_true', help='Instead of NMS to select from overlapping boxes, use a weighted mean of overlaps')
+    parser.add_argument('-p', '--preview', type=str, help='Predict on directory of raw preview images')
+    parser.add_argument(
+        '-b', '--box_blending',
+        action='store_true',
+        help='Instead of NMS to select from overlapping boxes, use a weighted mean of overlaps'
+    )
+    parser.add_argument(
+        '-a', '--anchors',
+        type=float,
+        nargs='*',
+        default=[0.72, 1.67, 1.86, 4.27, 2.83, 8.66, 5.53, 10.47, 10.83, 12.45],
+        help='Anchors to use with yolo detection (caffe). '
+             'Defaults to [0.72, 1.67, 1.86, 4.27, 2.83, 8.66, 5.53, 10.47, 10.83, 12.45]'
+    )
     args = parser.parse_args()
 
-    if args.container is None and args.images is None:
-        raise ValueError('No data to infer on')
-    if args.container and args.images:
-        raise ValueError('Only one data set to infer on is allowed')
+    arg_data = [1 for d in [args.container, args.images, args.preview] if d is not None]
+    if sum(arg_data) != 1:
+        raise ValueError('One (and only one) data set to infer on has to be defined')
 
     if args.output:
         assert Path(args.output).parent.exists(), 'Path to output directory does not exists'

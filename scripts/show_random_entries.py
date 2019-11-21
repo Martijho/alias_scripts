@@ -6,7 +6,7 @@ from tqdm import tqdm
 import argparse
 import matplotlib
 matplotlib.rc('figure', figsize=(16, 12))
-
+import cv2
 
 ALIAS_NAME = 'contshow'
 
@@ -33,7 +33,30 @@ if __name__ == '__main__':
 			print('Num instances:', len(cont[n].instances))
 			cont[n].show()
 	else:
-		keys = list(cont.entries.keys())
-		shuffle(keys)
-		for key in tqdm(keys):
-			cont.entries[key].show()
+		entry_keys = list(cont.entries.keys())
+		shuffle(entry_keys)
+
+		key = None
+		i = 0
+
+		while True:
+			image = cont.entries[entry_keys[i]].overlaid_on_image()
+			image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+			name = cont.entries[entry_keys[i]].image_name
+
+			cv2.namedWindow(name, cv2.WND_PROP_FULLSCREEN)
+			cv2.setWindowProperty(name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+			cv2.imshow(name, image)
+
+			key = cv2.waitKey()
+			cv2.destroyAllWindows()
+
+			if key == ord('a'):
+				i -= 1
+			elif key == ord('d'):
+				i += 1
+			elif key == ord('q'):
+				break
+
+			i = i % len(entry_keys)
+		# cv2.destroyAllWindows()

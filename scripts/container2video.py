@@ -9,6 +9,7 @@ import numpy as np
 
 ALIAS_NAME = 'cont2video'
 
+
 def get_args():
     parser = argparse.ArgumentParser(description='Create a video of all frames in container with their detections')
     parser.add_argument('container', type=str, nargs='*', help='Containers')
