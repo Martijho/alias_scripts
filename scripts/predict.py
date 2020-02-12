@@ -1,7 +1,6 @@
 from bbox import AnnotationContainer, AnnotationInstance, AnnotationEntry, BBox, DatasetSourceProvider, ImageSize
 from bbox.contrib.detection.darknet import DarknetObjectDetector
 from bbox.contrib.detection.tensorflow import TensorflowObjectDetector
-from bbox.contrib.detection.caffe import CaffeYoloObjectDetector
 
 from pathlib import Path
 import argparse
@@ -28,6 +27,7 @@ def _get_detector_func(model_root):
 
 
 def caffe_detector(model_root, threshold=.01, box_blending=False, anchors=None):
+    from bbox.contrib.detection.caffe import CaffeYoloObjectDetector
     model_root = Path(model_root)
     model_name = model_root.name
     prototxt = model_root / f'{model_name}.prototxt'

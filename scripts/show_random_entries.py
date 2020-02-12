@@ -1,30 +1,29 @@
-import sys
-from pathlib import Path
 from random import shuffle
 from bbox import AnnotationContainer
-from tqdm import tqdm
 import argparse
-import matplotlib
-matplotlib.rc('figure', figsize=(16, 12))
 import cv2
 
 ALIAS_NAME = 'contshow'
 
 if __name__ == '__main__':
 
-
-	parser = argparse.ArgumentParser(description='Show random entries from annotation container.')
+	parser = argparse.ArgumentParser(description='Show entries from annotation container.')
 
 	parser.add_argument('container', metavar='FILE', type=str, help='Container')
 	parser.add_argument('-l', '--labels', type=str, nargs='*', help='Only show these labels')
 	parser.add_argument('-p', '--prune', action='store_true', help='Prune empty entries')
 	parser.add_argument('-n', '--name', type=str, nargs='*', help='Names of images to show')
+	parser.add_argument('-s', '--shuffle', action='store_true', help='Shuffle images')
+	parser.add_argument('-t', '--threshold', type=float, help='Filter detections with confidence')
 	args = parser.parse_args()
 
 	container = args.container
 	cont = AnnotationContainer.from_file(container)
 	if args.labels and len(args.labels) > 0:
 		cont = cont.with_selected_labels(args.labels, prune_empty_entries=args.prune, in_place=True)
+	if args.threshold is not None:
+		assert 0 <= args.threshold <= 1, 'Confidence threshold must be in [0, 1]'
+		cont = cont.filter_all_instances_by_threshold(args.threshold, in_place=True)
 
 	if args.name:
 		for n in args.name:
@@ -34,7 +33,8 @@ if __name__ == '__main__':
 			cont[n].show()
 	else:
 		entry_keys = list(cont.entries.keys())
-		shuffle(entry_keys)
+		if args.shuffle:
+			shuffle(entry_keys)
 
 		key = None
 		i = 0
@@ -59,4 +59,4 @@ if __name__ == '__main__':
 				break
 
 			i = i % len(entry_keys)
-		# cv2.destroyAllWindows()
+		cv2.destroyAllWindows()
