@@ -15,6 +15,7 @@ if __name__ == '__main__':
 	parser.add_argument('-n', '--name', type=str, nargs='*', help='Names of images to show')
 	parser.add_argument('-s', '--shuffle', action='store_true', help='Shuffle images')
 	parser.add_argument('-t', '--threshold', type=float, help='Filter detections with confidence')
+	parser.add_argument('-m', '--max', type=int, default=None, help='Show only this amount of images')
 	args = parser.parse_args()
 
 	container = args.container
@@ -38,8 +39,19 @@ if __name__ == '__main__':
 
 		key = None
 		i = 0
-
+		not_found_counter = 0
+		successfully_shown = set()
 		while True:
+			if not cont.entries[entry_keys[i]].get_image_full_path().exists():
+				print('Entry:', entry_keys[i], 'is not found.')
+				not_found_counter += 1
+				if key == ord('a'):
+					i -= 1
+				else:
+					i += 1
+				continue
+
+			successfully_shown.add(i)
 			image = cont.entries[entry_keys[i]].overlaid_on_image()
 			image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 			name = cont.entries[entry_keys[i]].image_name
@@ -58,5 +70,12 @@ if __name__ == '__main__':
 			elif key == ord('q'):
 				break
 
+			if args.max is not None and args.max <= len(successfully_shown):
+				print(f'Max number ({args.max}) of images shown')
+				break
+
 			i = i % len(entry_keys)
 		cv2.destroyAllWindows()
+
+		if not_found_counter > 0:
+			print('\tNB:\t\tTried to show', not_found_counter, 'missing images.')
