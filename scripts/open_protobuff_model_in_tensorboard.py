@@ -1,8 +1,6 @@
 import tensorflow as tf
 import argparse
 import os
-from pathlib import Path
-
 
 ALIAS_NAME = 'totb'
 
@@ -13,6 +11,7 @@ def get_args():
     parser.add_argument('--out', help='log_dir: where event file is written')
     parser.add_argument('--port', default='6006', help='Tensorboard port. Default 6006')
     return parser.parse_args()
+
 
 if __name__ == '__main__':
 

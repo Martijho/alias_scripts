@@ -1,5 +1,3 @@
-import sys
-from pathlib import Path
 import argparse
 from collections import defaultdict
 from bbox import AnnotationContainer
@@ -10,15 +8,14 @@ ALIAS_NAME = 'contthresh'
 
 if __name__ == '__main__':
 
-
-    parser = argparse.ArgumentParser(description='Filter out instances in a container by confidence threshold. ' +
-                                     'labels[i] is filtered using threshold[i]')
+    parser = argparse.ArgumentParser(
+        description='Filter out instances in a container by confidence threshold. '
+                    'Labels[i] is filtered using threshold[i]')
 
     parser.add_argument('container', help='Container to threshold')
-    parser.add_argument('-l','--labels', type=str, nargs='*',
-                        help='List of labels to threshold')
+    parser.add_argument('-l', '--labels', type=str, nargs='*', help='List of labels to threshold')
     parser.add_argument('-t', '--threshold', type=float, nargs='*',
-                        help='List of thresholds to use for provided labels. ')
+                        help='List of thresholds to use for provided labels.')
     parser.add_argument('-r', '--rest', type=float, help='Threshold to use for all other labels. ' +
                         'If no labels provided, this is used for all labels. If no rest is provided, ' +
                         'all other labels is threshold with 0.0')

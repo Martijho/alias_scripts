@@ -9,13 +9,12 @@ ALIAS_NAME = 'contlabelselect'
 
 if __name__ == '__main__':
 
-
     parser = argparse.ArgumentParser(description='Selects probided labels from container')
 
     parser.add_argument('container', help='Container to select labels from')
-    parser.add_argument('labels', type=str, nargs='*',
+    parser.add_argument('-l', '--labels', type=str, nargs='*',
                         help='label(s) to select from container')
-    parser.add_argument('-o','--out_container', type=str,
+    parser.add_argument('-o', '--out_container', type=str,
                         help='Output path to write trimmed container to. ' +
                         'If not provided, default filename will be ' +
                         '\'output_container_label1_label2_...bbox\'')
@@ -37,6 +36,7 @@ if __name__ == '__main__':
         else:
             raise ValueError(f'{args.file} not recognized as valid label file')
     else:
+        assert args.labels is not None, 'Some labels must be provided if no labelmap is given with -f'
         labels = args.labels
 
     if args.container == args.out_container:

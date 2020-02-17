@@ -1,5 +1,3 @@
-import sys
-from pathlib import Path
 import argparse
 
 from bbox import AnnotationContainer
@@ -9,7 +7,6 @@ import gc
 ALIAS_NAME = 'contmerge'
 
 if __name__ == '__main__':
-
 
     parser = argparse.ArgumentParser(description='Merge two or more annotationcontainers')
 
