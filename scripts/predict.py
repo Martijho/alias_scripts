@@ -6,6 +6,9 @@ from pathlib import Path
 import argparse
 import numpy as np
 from tqdm import tqdm
+import cv2
+
+from collections import defaultdict
 
 
 ALIAS_NAME = 'predict'
@@ -152,6 +155,32 @@ def detect_on_preview_dir(preview_data, detector):
     return container
 
 
+def predict_on_video(video_file, detector):
+    def frame_generator():
+        vidcap = cv2.VideoCapture(str(video_file))
+
+        frame = 0
+        while True:
+            success, image = vidcap.read()
+            if success:  # and frame < 500:
+                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                yield frame, image
+                frame += 1
+            else:
+                break
+    name = Path(video_file).stem
+    colors = defaultdict(lambda: np.random.randint(0, 255, 3))
+    cv2.namedWindow(name, cv2.WND_PROP_FULLSCREEN)
+    cv2.setWindowProperty(name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+
+    for frame_nr, image in frame_generator():
+        for i in detector.detect_image(image):
+            image = i.bbox.overlaid_on_image(image, colors[i.label])
+        cv2.imshow(name, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+        if cv2.waitKey(10) == ord('q'):
+            break
+
+
 def main(args):
     thresh = .01 if args.box_blending else args.threshold
     get_detector = _get_detector_func(args.model)
@@ -181,6 +210,10 @@ def main(args):
             if args.box_blending and type(detector) == DarknetObjectDetector:
                 pred = _blend_boxes(pred)
                 pred.filter_all_instances_by_threshold(args.threshold, in_place=True)
+
+        elif args.video:
+            predict_on_video(args.video, detector)
+
     if args.output:
         pred.to_file(args.output)
 
@@ -193,6 +226,7 @@ def get_args():
     parser.add_argument('-i', '--images', type=str, help='Predict on images in directory')
     parser.add_argument('-t', '--threshold', default=0.01, type=float, help='Confidence threshold')
     parser.add_argument('-p', '--preview', type=str, help='Predict on directory of raw preview images')
+    parser.add_argument('-v', '--video', type=str, help='Predict on video file. Overlay results live')
     parser.add_argument(
         '-b', '--box_blending',
         action='store_true',
@@ -208,7 +242,7 @@ def get_args():
     )
     args = parser.parse_args()
 
-    arg_data = [1 for d in [args.container, args.images, args.preview] if d is not None]
+    arg_data = [1 for d in [args.container, args.images, args.preview, args.video] if d is not None]
     if sum(arg_data) != 1:
         raise ValueError('One (and only one) data set to infer on has to be defined')
 

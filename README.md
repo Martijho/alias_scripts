@@ -23,9 +23,10 @@ Filters annotations in a container by confidence threshold.
 #### `contmerge`
 Merges two or more containers. Run with `-n` to apply non-maximum suppression on each entry after merging
 #### `predict`
-Predicts with a model. Input can be a container (`-c <path>`), directory of images (`-i <path>`) 
-or a directory of preview-images from autozoom feedback (`-p <path>`). The option `-b` runs box-blending instead of NMS 
-on the inferences, but dont use it.
+Predicts with a model. Input can be a container (`-c <path>`), directory of images (`-i <path>`), video-file (`-i <path>`),
+or a directory of preview-images from autozoom feedback (`-p <path>`). If input is a video file, the predictions will be shown 
+overlaid on the video. The option `-b` runs box-blending instead of NMS on the inferences, but implementation performes worse so NMS
+is recommended.
 #### `cont2tfrecord`
 Takes a container and labelmap and outputs the annotations as a tf-record. Make sure that all images the container 
 reference is found by running `contsum`. 
